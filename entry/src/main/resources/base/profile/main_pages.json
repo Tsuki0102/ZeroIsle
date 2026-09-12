@@ -1,0 +1,11 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/mine/MinePage",
+    "pages/dex/DexPage",
+    "pages/mine/BackupPage",
+    "pages/carbon/CarbonPlusPage",
+    "pages/rank/WeekRankPage",
+    "pages/poster/PosterPage"
+  ]
+}

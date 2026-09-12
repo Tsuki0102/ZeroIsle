@@ -1,0 +1,24 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "零屿 - 你的低碳之屿"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "碳足迹记录与碳积分激励应用"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "零屿"
+    },
+    {
+      "name": "ZeroIsleCard_name",
+      "value": "零屿·碳足迹"
+    },
+    {
+      "name": "ZeroIsleCard_desc",
+      "value": "桌面直视今日减排与岛币"
+    }
+  ]
+}
