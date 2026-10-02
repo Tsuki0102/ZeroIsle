@@ -1,7 +1,7 @@
 {
   "app": {
-    "bundleName": "com.example.zeroisle",
-    "vendor": "example",
+    "bundleName": "com.zeroisle.isle",
+    "vendor": "ZeroIsle",
     "versionCode": 1000000,
     "versionName": "1.0.0",
     "buildVersion": "1",

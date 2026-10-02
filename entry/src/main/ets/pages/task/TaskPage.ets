@@ -1,16 +1,21 @@
 import { common } from '@kit.AbilityKit'
 import { emitter } from '@kit.BasicServicesKit'
+import { router } from '@kit.ArkUI'
 import { ZeroTheme } from '../../common/Theme'
-import { toast, EVT_DATA_CHANGED } from '../../common/Common'
+import { toast, EVT_DATA_CHANGED, EVT_GO_RECORD } from '../../common/Common'
 import { Database } from '../../data/Database'
 import { notificationManager } from '@kit.NotificationKit'
+import { ReminderService } from '../../service/ReminderService'
+import { CertificateService, TreeCert } from '../../service/CertificateService'
 import { RingProgress } from '../../components/Charts'
+import { CampStrip } from '../../components/MiniScenes'
 import { DAILY_TASKS, WEEK_TASKS, BADGES, SHOP_ITEMS, TaskDef } from '../../model/GameConfig'
 
 /** 任务行状态 */
 export class TaskRow {
   id: string = ''
   icon: string = ''
+  tint: string = '#0E5E6F'
   name: string = ''
   desc: string = ''
   reward: number = 0
@@ -33,9 +38,11 @@ export class BadgeRow {
 export class ShopRow {
   id: string = ''
   icon: string = ''
+  tint: string = '#D97706'
   name: string = ''
   desc: string = ''
   cost: number = 0
+  route: string = ''
 }
 
 function makeShopRows(): ShopRow[] {
@@ -47,6 +54,8 @@ function makeShopRows(): ShopRow[] {
     r.name = s.name
     r.desc = s.desc
     r.cost = s.cost
+    r.tint = s.tint
+    r.route = s.route
     rows.push(r)
   }
   return rows
@@ -57,16 +66,24 @@ function makeShopRows(): ShopRow[] {
 export struct TaskPage {
   @State available: number = 0
   @State totalEarned: number = 0
+  @State totalCo2: number = 0
   @State dailyRows: TaskRow[] = []
   @State weekRows: TaskRow[] = []
   @State badgeRows: BadgeRow[] = []
   @State shopRows: ShopRow[] = makeShopRows()
 
-  aboutToAppear(): void {
-    emitter.on({ eventId: EVT_DATA_CHANGED }, () => {
-      this.loadAll()
-    })
+  /** 数据变更回调(保存引用,退订时只移除本页订阅,避免误删其它页监听) */
+  private readonly onDataChanged: () => void = () => {
     this.loadAll()
+  }
+
+  aboutToAppear(): void {
+    emitter.on({ eventId: EVT_DATA_CHANGED }, this.onDataChanged)
+    this.loadAll()
+  }
+
+  aboutToDisappear(): void {
+    emitter.off(EVT_DATA_CHANGED, this.onDataChanged)
   }
 
   private async loadAll(): Promise<void> {
@@ -75,8 +92,9 @@ export struct TaskPage {
     const spent: number = await Database.spentSum(ctx)
     this.totalEarned = s.totalPoints
     this.available = s.totalPoints - spent
+    this.totalCo2 = s.totalCo2
 
-    const weekKey: string = Database.dateBefore(6)
+    const weekKey: string = Database.weekMonday()
     this.dailyRows = await this.loadTasks(DAILY_TASKS, ctx, Database.today())
     this.weekRows = await this.loadTasks(WEEK_TASKS, ctx, weekKey)
 
@@ -117,6 +135,7 @@ export struct TaskPage {
       const r = new TaskRow()
       r.id = t.id
       r.icon = t.icon
+      r.tint = t.tint
       r.name = t.name
       r.desc = t.desc
       r.reward = t.reward
@@ -135,7 +154,7 @@ export struct TaskPage {
       return
     }
     const ctx = getContext(this) as common.UIAbilityContext
-    const key: string = isDaily ? Database.today() : Database.dateBefore(6)
+    const key: string = isDaily ? Database.today() : Database.weekMonday()
     Database.claimReward(ctx, r.id, r.reward, key).then(() => {
       emitter.emit({ eventId: EVT_DATA_CHANGED }, {})
       toast(`领取成功 +${r.reward} 岛币!`)
@@ -144,7 +163,8 @@ export struct TaskPage {
   }
 
   private goRecord(r: TaskRow): void {
-    toast(`去「记」页记录「${r.name}」相关行为,进度实时更新`)
+    emitter.emit({ eventId: EVT_GO_RECORD }, {})
+    toast(`已切到「记」页,完成「${r.name}」相关行为即可领币`)
   }
 
   private doExchange(item: ShopRow): void {
@@ -153,32 +173,57 @@ export struct TaskPage {
       return
     }
     const ctx = getContext(this) as common.UIAbilityContext
+    if (item.id === 's_tree') {
+      // 植树证书唯一持有:已有证书时不再扣币,引导查看,防重复兑换
+      CertificateService.list(ctx).then((certs: TreeCert[]) => {
+        if (certs.length > 0) {
+          toast('已持有植树证书,可在「我的」-「我的植树证书」查看')
+          return
+        }
+        Database.exchange(ctx, item.name, item.cost).then(() => {
+          emitter.emit({ eventId: EVT_DATA_CHANGED }, {})
+          CertificateService.issue(ctx, this.totalCo2).then((cert: TreeCert) => {
+            toast(`已兑换「${item.name}」,证书编号 ${cert.serial}`)
+            this.loadAll()
+            router.pushUrl({ url: item.route, params: { serial: cert.serial } })
+          })
+        })
+      })
+      return
+    }
     Database.exchange(ctx, item.name, item.cost).then(() => {
       emitter.emit({ eventId: EVT_DATA_CHANGED }, {})
-      toast(`已兑换「${item.name}」`)
-      this.loadAll()
+      if (item.id === 's_coupon') {
+        // 岛币 → 碳普惠平台券:跨体系积分互通,权益码直接落到平台券包(不再只是跳页)
+        const code: string = `ZP-${Database.today().split('-').join('')}-${1000 + (Date.now() % 9000)}`
+        Database.addVoucher(ctx, '碳普惠·平台通用权益券', code, 0).then(() => {
+          toast(`已兑换「${item.name}」,权益码 ${code} 已存入碳普惠券包`)
+          this.loadAll()
+          router.pushUrl({ url: item.route })
+        })
+      } else if (item.id === 's_badge') {
+        // 兑换限定徽章卡:标记已激活并跳转徽章墙
+        Database.kvSet(ctx, 'badge_card', '1').then(() => {
+          toast(`已兑换「${item.name}」,已收入你的徽章墙`)
+          this.loadAll()
+          router.pushUrl({ url: item.route })
+        })
+      } else {
+        toast(`已兑换「${item.name}」`)
+        this.loadAll()
+        if (item.route !== '') {
+          router.pushUrl({ url: item.route })
+        }
+      }
     })
   }
 
-  /** 每日任务提醒(本地通知,通知点"智能服务"落地) */
+  /** 每日低碳提醒:系统级定时提醒(每天 19:30,重启后仍生效) */
   private enableDailyNotify(): void {
     const ctx = getContext(this) as common.UIAbilityContext
-    notificationManager.requestEnableNotification(ctx).then(() => {
-      const request: notificationManager.NotificationRequest = {
-        id: 20260912,
-        content: {
-          notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
-          normal: {
-            title: '零屿 · 低碳营地',
-            text: '新的校园低碳任务已发布:光盘打卡 / 节能行动 / 绿色通勤,完成可赚岛币!'
-          }
-        }
-      }
-      notificationManager.publish(request).then(() => {
-        toast('每日提醒已开启,记得来完成今天的任务哦')
-      }).catch(() => {
-        toast('通知发布失败,请检查通知设置')
-      })
+    notificationManager.requestEnableNotification(ctx).then(async () => {
+      const msg: string = await ReminderService.enableDaily()
+      toast(msg)
     }).catch(() => {
       toast('通知权限未开启,可在系统设置中打开')
     })
@@ -188,55 +233,59 @@ export struct TaskPage {
     Column() {
       // 标题 + 岛币卡
       Row() {
-        Column() {
-          Text('低碳营地').fontSize(22).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.textMain)
-          Text('校园挑战 · 岛币 · 徽章').fontSize(11).fontColor(ZeroTheme.textSub).margin({ top: 2 })
-        }.alignItems(HorizontalAlign.Start).layoutWeight(1)
+        Text('低碳营地')
+          .fontSize(22).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_main'))
+          .layoutWeight(1)
 
-        Button('🔔 任务提醒')
-          .fontSize(12)
-          .height(32)
-          .backgroundColor(ZeroTheme.primaryLight)
-          .fontColor(ZeroTheme.primary)
-          .onClick(() => {
-            this.enableDailyNotify()
-          })
+        Button() {
+          Row({ space: 5 }) {
+            Image($rawfile('icons/ic_bell.svg')).width(14).height(14).fillColor($r('app.color.primary'))
+            Text('任务提醒').fontSize(12)
+          }
+        }
+        .fontSize(12)
+        .height(32)
+        .backgroundColor($r('app.color.primary_light'))
+        .fontColor($r('app.color.primary'))
+        .onClick(() => {
+          this.enableDailyNotify()
+        })
       }
       .width('100%')
       .padding({ left: ZeroTheme.padL, right: ZeroTheme.padL, top: 12 })
 
-      Row() {
-        Column() {
-          Text('可用岛币').fontSize(11).fontColor(ZeroTheme.textSub)
-          Row() {
-            Text('🪙').fontSize(20)
-            Text(`${this.available}`)
-              .fontSize(26).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.accent).margin({ left: 6 })
-          }.margin({ top: 4 })
-        }
-        .alignItems(HorizontalAlign.Start)
-        .layoutWeight(1)
-        Divider().strokeWidth(1).color(ZeroTheme.primaryLight).height(36).vertical(true)
-        Column() {
-          Text('累计获得').fontSize(11).fontColor(ZeroTheme.textSub)
-          Text(`${this.totalEarned} 分`)
-            .fontSize(16).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.primary).margin({ top: 8 })
-        }
-        .alignItems(HorizontalAlign.End)
-        .layoutWeight(1)
-      }
-      .width('100%')
-      .padding(ZeroTheme.padM)
-      .backgroundColor(ZeroTheme.cardBg)
-      .borderRadius(ZeroTheme.radiusM)
-      .margin({ top: 12 })
-
       List({ space: 10 }) {
+        ListItem() {
+        // 营地篝火动画场景条 + 玻璃数据牌
+        Stack({ alignContent: Alignment.BottomStart }) {
+          CampStrip()
+          Row({ space: 8 }) {
+            Text(`可用岛币 ${this.available} 分`)
+              .fontSize(12).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_main'))
+              .fontFamily(ZeroTheme.fontNum)
+            Text(`累计获得 ${this.totalEarned} 分`)
+              .fontSize(10).fontColor($r('app.color.text_sub'))
+          }
+          .padding({ left: 12, right: 12, top: 7, bottom: 7 })
+          .backgroundColor('rgba(255,255,255,0.8)')
+          .borderRadius(999)
+          .margin({ left: 12, bottom: 10 })
+        }
+        .width('100%')
+        .height(128)
+        .borderRadius(ZeroTheme.radiusL)
+        .clip(true)
+        .margin({ top: 12 })
+
+        }
         // 每日任务
         ListItem() {
-          Text('每日任务 · 每天 0 点刷新')
-            .fontSize(15).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.textMain)
-            .padding({ top: 4 })
+          Row({ space: 6 }) {
+            Image($rawfile('icons/ic_calc.svg')).width(16).height(16).fillColor($r('app.color.primary'))
+            Text('每日任务 · 每天 0 点刷新')
+              .fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_main'))
+              .padding({ top: 4 })
+          }
         }
         ForEach(this.dailyRows, (r: TaskRow) => {
           ListItem() {
@@ -246,9 +295,12 @@ export struct TaskPage {
 
         // 本周挑战
         ListItem() {
-          Text('本周校园挑战')
-            .fontSize(15).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.textMain)
-            .padding({ top: 6 })
+          Row({ space: 6 }) {
+            Image($rawfile('icons/ic_fire.svg')).width(16).height(16).fillColor($r('app.color.gold_deep'))
+            Text('本周校园挑战 · 周一 0 点刷新')
+              .fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_main'))
+              .padding({ top: 6 })
+          }
         }
         ForEach(this.weekRows, (r: TaskRow) => {
           ListItem() {
@@ -258,32 +310,39 @@ export struct TaskPage {
 
         // 徽章墙
         ListItem() {
-          Text('徽章墙')
-            .fontSize(15).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.textMain)
-            .padding({ top: 6 })
+          Row({ space: 6 }) {
+            Image($rawfile('icons/ic_rank.svg')).width(16).height(16).fillColor($r('app.color.primary'))
+            Text('徽章墙')
+              .fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_main'))
+              .padding({ top: 6 })
+          }
         }
         ListItem() {
           Scroll() {
             Row({ space: 10 }) {
               ForEach(this.badgeRows, (b: BadgeRow) => {
                 Column() {
-                  Text(b.unlocked ? b.icon : '🔒').fontSize(30)
+                  Image($rawfile(`icons/${b.unlocked ? b.icon : 'ic_lock'}.svg`))
+                    .width(30)
+                    .height(30)
+                    .fillColor(b.unlocked ? $r('app.color.gold_deep') : $r('app.color.text_sub'))
+                    .opacity(b.unlocked ? 1 : 0.55)
                   Text(b.name)
                     .fontSize(12)
                     .fontWeight(FontWeight.Medium)
-                    .fontColor(b.unlocked ? ZeroTheme.textMain : ZeroTheme.textSub)
+                    .fontColor(b.unlocked ? $r('app.color.text_main') : $r('app.color.text_sub'))
                     .margin({ top: 6 })
                   Text(b.desc)
-                    .fontSize(9)
-                    .fontColor(ZeroTheme.textSub)
+                    .fontSize(10)
+                    .fontColor($r('app.color.text_sub'))
                     .textAlign(TextAlign.Center)
                     .margin({ top: 3 })
                 }
                 .width(110)
                 .padding({ top: 14, bottom: 12, left: 8, right: 8 })
-                .backgroundColor(b.unlocked ? ZeroTheme.accentSoft : ZeroTheme.bg)
+                .backgroundColor(b.unlocked ? $r('app.color.accent_soft') : $r('app.color.bg'))
                 .borderRadius(ZeroTheme.radiusM)
-                .border({ width: 1, color: b.unlocked ? ZeroTheme.accent : '#E0E8E6' })
+                .border({ width: 1, color: b.unlocked ? $r('app.color.accent') : $r('app.color.hairline') })
               }, (b: BadgeRow) => b.name + b.unlocked.toString())
             }
           }
@@ -295,14 +354,25 @@ export struct TaskPage {
         // 岛币商城
         ListItem() {
           Column() {
-            Image($rawfile('shop_header.jpg'))
-              .width('100%')
-              .height(96)
-              .objectFit(ImageFit.Cover)
-              .borderRadius(ZeroTheme.radiusM)
-              .margin({ top: 6 })
+            Row() {
+              Column({ space: 3 }) {
+                Text('岛币商城').fontSize(16).fontWeight(FontWeight.Bold).fontColor(Color.White)
+                Text('攒币兑权益,让每一次坚持被看见').fontSize(10).fontColor('rgba(255,255,255,0.88)')
+              }
+              .alignItems(HorizontalAlign.Start)
+              .layoutWeight(1)
+              Image($rawfile('icons/ic_coin.svg'))
+                .width(30).height(30).fillColor(Color.White)
+                .opacity(0.92)
+            }
+            .width('100%')
+            .padding({ left: ZeroTheme.padL, right: ZeroTheme.padL })
+            .height(88)
+            .linearGradient({ angle: 135, colors: [[$r('app.color.gold_deep'), 0], [$r('app.color.sand'), 1]] })
+            .borderRadius(ZeroTheme.radiusM)
+            .margin({ top: 6 })
             Text('岛币商城')
-              .fontSize(15).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.textMain)
+              .fontSize(15).fontWeight(FontWeight.Bold).fontColor($r('app.color.text_main'))
               .margin({ top: 10 })
           }
           .alignItems(HorizontalAlign.Start)
@@ -311,22 +381,29 @@ export struct TaskPage {
         ForEach(this.shopRows, (item: ShopRow) => {
           ListItem() {
             Row() {
-              Text(item.icon).fontSize(26)
               Column() {
-                Text(item.name).fontSize(15).fontWeight(FontWeight.Medium).fontColor(ZeroTheme.textMain)
-                Text(item.desc).fontSize(11).fontColor(ZeroTheme.textSub).margin({ top: 3 })
+                Image($rawfile(`icons/${item.icon}.svg`))
+                  .width(24).height(24).fillColor(item.tint)
+              }
+              .justifyContent(FlexAlign.Center)
+              .width(40).height(40)
+              .borderRadius(12)
+              .backgroundColor($r('app.color.bg'))
+              Column() {
+                Text(item.name).fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_main'))
+                Text(item.desc).fontSize(11).fontColor($r('app.color.text_sub')).margin({ top: 3 })
               }
               .alignItems(HorizontalAlign.Start)
               .layoutWeight(1)
               .margin({ left: 12 })
 
               Column() {
-                Text(`🪙 ${item.cost}`).fontSize(13).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.accent)
+                Text(`${item.cost}`).fontSize(13).fontWeight(FontWeight.Bold).fontColor($r('app.color.accent'))
                 Button(this.available >= item.cost ? '兑换' : '岛币不足')
                   .fontSize(12)
                   .height(30)
-                  .backgroundColor(this.available >= item.cost ? ZeroTheme.primary : ZeroTheme.bg)
-                  .fontColor(this.available >= item.cost ? ZeroTheme.textLight : ZeroTheme.textSub)
+                  .backgroundColor(this.available >= item.cost ? $r('app.color.primary') : $r('app.color.bg'))
+                  .fontColor(this.available >= item.cost ? $r('app.color.text_light') : $r('app.color.text_sub'))
                   .margin({ top: 4 })
                   .onClick(() => {
                     this.doExchange(item)
@@ -336,8 +413,9 @@ export struct TaskPage {
             }
             .width('100%')
             .padding(ZeroTheme.padM)
-            .backgroundColor(ZeroTheme.cardBg)
+            .backgroundColor($r('app.color.card_bg'))
             .borderRadius(ZeroTheme.radiusM)
+            .shadow({ radius: 12, color: $r('app.color.shadow_soft'), offsetX: 0, offsetY: 4 })
             .margin({ bottom: 20 })
           }
         }, (item: ShopRow) => item.id + (this.available >= item.cost).toString())
@@ -348,23 +426,31 @@ export struct TaskPage {
     }
     .width('100%')
     .height('100%')
-    .backgroundColor(ZeroTheme.bg)
+    .constraintSize({ maxWidth: 720 })
+    .backgroundColor($r('app.color.bg'))
   }
 
   @Builder
   taskCard(r: TaskRow, isDaily: boolean) {    Row() {
-      Text(r.icon).fontSize(26)
+      Column() {
+        Image($rawfile(`icons/${r.icon}.svg`))
+          .width(22).height(22).fillColor($r('app.color.text_light'))
+      }
+      .justifyContent(FlexAlign.Center)
+      .width(40).height(40)
+      .borderRadius(13)
+      .backgroundColor(r.tint)
       Column() {
         Row() {
-          Text(r.name).fontSize(15).fontWeight(FontWeight.Medium).fontColor(ZeroTheme.textMain)
+          Text(r.name).fontSize(15).fontWeight(FontWeight.Medium).fontColor($r('app.color.text_main'))
           Text(` +${r.reward} 岛币`)
-            .fontSize(11).fontWeight(FontWeight.Bold).fontColor(ZeroTheme.ok).margin({ left: 6 })
+            .fontSize(11).fontWeight(FontWeight.Bold).fontColor($r('app.color.ok')).margin({ left: 6 })
         }
-        Text(r.desc).fontSize(11).fontColor(ZeroTheme.textSub).margin({ top: 3 })
+        Text(r.desc).fontSize(11).fontColor($r('app.color.text_sub')).margin({ top: 3 })
         Row() {
-          RingProgress({ value: r.progress, total: r.goal, color: r.done ? ZeroTheme.life : ZeroTheme.primary })
+          RingProgress({ value: r.progress, total: r.goal, done: r.done })
           Text(` ${r.progress}/${r.goal} ${r.unit}`)
-            .fontSize(10).fontColor(ZeroTheme.textSub).margin({ left: 4 })
+            .fontSize(10).fontColor($r('app.color.text_sub')).margin({ left: 4 })
         }.margin({ top: 8 })
       }
       .alignItems(HorizontalAlign.Start)
@@ -373,15 +459,15 @@ export struct TaskPage {
 
       if (r.claimed) {
         Text('已领取')
-          .fontSize(12).fontColor(ZeroTheme.textSub)
+          .fontSize(12).fontColor($r('app.color.text_sub'))
           .padding({ left: 12, right: 12, top: 8, bottom: 8 })
-          .backgroundColor(ZeroTheme.bg)
+          .backgroundColor($r('app.color.bg'))
           .borderRadius(14)
       } else if (r.done) {
         Button('领取')
           .fontSize(13)
           .height(34)
-          .backgroundColor(ZeroTheme.accent)
+          .backgroundColor($r('app.color.accent'))
           .onClick(() => {
             this.claim(r, isDaily)
           })
@@ -389,8 +475,8 @@ export struct TaskPage {
         Button('去完成')
           .fontSize(12)
           .height(34)
-          .backgroundColor(ZeroTheme.primaryLight)
-          .fontColor(ZeroTheme.primary)
+          .backgroundColor($r('app.color.primary_light'))
+          .fontColor($r('app.color.primary'))
           .onClick(() => {
             this.goRecord(r)
           })
@@ -398,7 +484,8 @@ export struct TaskPage {
     }
     .width('100%')
     .padding(ZeroTheme.padM)
-    .backgroundColor(ZeroTheme.cardBg)
+    .backgroundColor($r('app.color.card_bg'))
     .borderRadius(ZeroTheme.radiusM)
+    .shadow({ radius: 12, color: $r('app.color.shadow_soft'), offsetX: 0, offsetY: 4 })
   }
 }

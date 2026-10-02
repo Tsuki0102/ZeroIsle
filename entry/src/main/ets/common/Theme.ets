@@ -1,82 +1,79 @@
 /**
- * 零屿 Theme v2 ——「仿生有机 · 呼吸的岛」设计 Token
- * 依据:ui-ux-pro-max 检索结论(Biomimetic/Organic 2.0)+ 零屿品牌海青
- * 命名策略:保留 v1 既有 Token 名(全部页面零改动继承新值),新增 v2 扩展 Token
- * 深色模式:M6 接入(本版先定义浅色晨屿体系,结构已为双主题预留)
+ * 零屿 Theme v4 ——「仿生有机 · 呼吸的岛」设计体系
+ * 颜色已全部资源化:浅色=resources/base/element/color.json,深色=resources/dark/element/color.json
+ * 本文件沉淀非颜色 Token:圆角/间距/字号/控件尺寸/动效/按压反馈,供全站统一引用。
+ * 约定:圆角走 radiusXS→radiusXL 阶梯;间距走 spaceXXS→spaceXL(4/8 节奏);字号走 fsCaption→fsDisplay。
  */
 export class ZeroTheme {
-  // ===== 品牌 · 海青系(结构与导航) =====
-  static readonly brandDeep: string = '#0A3F4C'
-  static readonly primary: string = '#0E5E6F'
-  static readonly primaryLight: string = '#DCEDEA'
-  static readonly primaryMist: string = 'rgba(14,94,111,0.10)'
-
-  // ===== 生命 · 岛绿系(成长/成功/生态)=====
-  static readonly lifeDeep: string = '#15803D'
-  static readonly life: string = '#059669'
-  static readonly lifeSoft: string = '#6EE7B7'
-
-  // ===== 强调 · 日光金 + 暖沙(岛币/能量/领取)=====
-  static readonly gold: string = '#FBBF24'
-  static readonly goldDeep: string = '#D97706'
-  static readonly sand: string = '#F2A65A'
-  static readonly sandSoft: string = '#FBE8D3'
-
-  // ===== 背景/卡片(薄荷染底,更"活")=====
-  static readonly bg: string = '#F0FDF4'
-  static readonly bgDeep: string = '#ECFDF5'
-  static readonly card: string = '#FFFFFF'
-  static readonly glass: string = 'rgba(255,255,255,0.68)'
-
-  // ===== 文字(浅色下对比度 ≥4.5:1)=====
-  static readonly textMain: string = '#0F172A'
-  static readonly textSub: string = '#475569'
-  static readonly textLight: string = '#FFFFFF'
-  static readonly textOnGlass: string = 'rgba(255,255,255,0.78)'
-
-  // ===== 语义 =====
-  static readonly danger: string = '#DC2626'
-  static readonly ok: string = '#059669'
-
-  // ===== 岛屿场景(兼容旧引用)=====
-  static readonly islandGreen: string = '#059669'
-  static readonly islandGreenDeep: string = '#15803D'
-  static readonly seaBlue: string = '#9ED8DB'
-  static readonly skyTop: string = '#DFF3F1'
-  static readonly skyBottom: string = '#FDF6EC'
-
-  // ===== v1 兼容别名(全页面既有引用,值映射到 v2 体系)=====
-  static readonly primaryDeep: string = ZeroTheme.brandDeep
-  static readonly accent: string = ZeroTheme.sand
-  static readonly accentSoft: string = ZeroTheme.sandSoft
-  static readonly cardBg: string = '#FFFFFF'
-
-  // ===== 形状 · 有机变径圆角(仿生规格 16-28,每张卡像河滩石头)=====
-  static readonly radiusScene: number = 24
-  static readonly radiusL: number = 24
-  static readonly radiusM: number = 16
+  // ===== 形状 · 圆角阶梯(有机,像河滩石头)=====
+  static readonly radiusXS: number = 8
   static readonly radiusS: number = 12
+  static readonly radiusM: number = 16
+  static readonly radiusL: number = 22
+  static readonly radiusXL: number = 28
+  static readonly radiusPill: number = 999
+  /** 场景卡(hero)大圆角 */
+  static readonly radiusScene: number = 24
   /** 有机变径组合 A( hero/场景卡) */
   static readonly stoneA: RoundRadius = { topLeft: 28, topRight: 22, bottomLeft: 22, bottomRight: 28 }
   /** 有机变径组合 B(内容卡) */
   static readonly stoneB: RoundRadius = { topLeft: 20, topRight: 26, bottomLeft: 18, bottomRight: 24 }
 
-  // ===== 间距(8dp 节奏)=====
+  // ===== 间距(4/8 节奏)=====
+  static readonly spaceXXS: number = 4
+  static readonly spaceXS: number = 8
+  static readonly spaceS: number = 12
+  static readonly spaceM: number = 16
+  static readonly spaceL: number = 24
+  static readonly spaceXL: number = 32
+  /** 页面左右安全边距 */
   static readonly padL: number = 20
   static readonly padM: number = 14
   static readonly padS: number = 8
 
+  // ===== 字号阶梯 =====
+  static readonly fsCaption: number = 10
+  static readonly fsSmall: number = 12
+  static readonly fsBody: number = 14
+  static readonly fsSubtitle: number = 16
+  static readonly fsTitle: number = 20
+  static readonly fsHeading: number = 24
+  static readonly fsDisplay: number = 30
+  static readonly lhTight: number = 18
+  static readonly lhBody: number = 21
+
+  // ===== 控件尺寸 =====
+  static readonly btnHeight: number = 46
+  static readonly btnHeightS: number = 38
+  static readonly inputHeight: number = 46
+  static readonly tabHeight: number = 58
+
   // ===== 动效时长 Token =====
   static readonly durMicro: number = 120
-  static readonly durStandard: number = 300
-  static readonly durEmphasis: number = 500
+  static readonly durStandard: number = 240
+  static readonly durEmphasis: number = 420
   static readonly durBreath: number = 4000
+  /** 标准缓动曲线 */
+  static readonly curveStandard: Curve = Curve.Friction
+  /** 按压反馈:透明度与缩放 */
+  static readonly pressOpacity: number = 0.72
+  static readonly pressScale: number = 0.97
 
   // ===== 字体 =====
   /** 数字/拉丁展示字体(EntryAbility 注册,rawfile 打包) */
   static readonly fontNum: string = 'NunitoDisplay'
   static readonly fontNumBlack: string = 'NunitoBlack'
   static readonly fontBase: string = 'HarmonyOS Sans'
+
+  // ===== 阴影(elevation)=====
+  /** 轻浮起(信息卡) */
+  static readonly shadowSoft: ShadowOptions = {
+    radius: 12, color: '#12000000', offsetX: 0, offsetY: 4
+  }
+  /** 中浮起(强调卡/悬浮元素) */
+  static readonly shadowMedium: ShadowOptions = {
+    radius: 20, color: '#1F000000', offsetX: 0, offsetY: 8
+  }
 }
 
 interface RoundRadius {
@@ -86,7 +83,7 @@ interface RoundRadius {
   bottomRight: number
 }
 
-/** 图标语义映射(TabBar/菜单矢量图标,去 emoji 化) */
+/** 图标语义映射(TabBar 矢量图标) */
 export class ZeroIcon {
   static readonly tabFiles: string[] = ['tab_island', 'tab_record', 'tab_stats', 'tab_task', 'tab_lab']
 }

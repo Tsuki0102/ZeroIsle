@@ -1,30 +1,30 @@
-/node_modules
-/oh_modules
-/.hvigor
-/entry/build
-/build
+# 忽略规则说明
+# - 构建产物与缓存:自动生成,可随时重建
+# - IDE/本地配置:每台机器不同,不入库
+# - 临时验证产物:开发期截图、导出物等,不入库
+
+# ---- 构建产物(自动生成) ----
+/build/
+/entry/build/
+/.hvigor/
+/node_modules/
+/oh_modules/
+
+# ---- IDE 与本地环境 ----
+/.idea/
 /local.properties
-/.idea
-*.jpeg
-log.txt
 /.clang-format
 /.clang-tidy
 /.gitattributes
 
+# ---- 运行与验证的临时产物 ----
+/shots/
+*.jpeg
 *.db
-*.jpeg
-*_small.png
-lab_cand_*.png
-cap_*.jpeg
-*.jpeg
-*_small.png
-*_crop.png
-cap_sheet*.png
-m3c_top.png
-h_compare.png
-assets_sheet.png
-lab_cands.png
-lg*.json
-mn*.json
+/layout.json
+log.txt
 build_log.txt
-IslandScene_old.ets
+
+# ---- 文档生成工作区与本地工具 ----
+/.docxgen/
+/.zcodeignore

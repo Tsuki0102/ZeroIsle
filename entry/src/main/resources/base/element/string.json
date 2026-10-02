@@ -19,6 +19,66 @@
     {
       "name": "ZeroIsleCard_desc",
       "value": "桌面直视今日减排与岛币"
+    },
+    {
+      "name": "tab_island",
+      "value": "屿"
+    },
+    {
+      "name": "tab_record",
+      "value": "记"
+    },
+    {
+      "name": "tab_stats",
+      "value": "析"
+    },
+    {
+      "name": "tab_task",
+      "value": "营"
+    },
+    {
+      "name": "tab_lab",
+      "value": "验"
+    },
+    {
+      "name": "title_mine",
+      "value": "我的"
+    },
+    {
+      "name": "title_dex",
+      "value": "岛屿图鉴"
+    },
+    {
+      "name": "title_backup",
+      "value": "备份与导出"
+    },
+    {
+      "name": "title_weekrank",
+      "value": "宿舍碳排周榜"
+    },
+    {
+      "name": "title_carbon",
+      "value": "碳普惠平台"
+    },
+    {
+      "name": "title_settings",
+      "value": "设置"
+    },
+    {
+      "name": "title_poster",
+      "value": "我的碳账单"
+    },
+    {
+      "name": "perm_reminder_reason",
+      "value": "用于每日定时提醒你记录低碳行为、领取任务奖励"
+    },
+    {
+      "name": "perm_distributed_reason",
+      "value": "用于超级终端多设备(手机/平板)间同步并合并碳账本数据"
+    },
+    {
+      "name": "perm_mic_reason",
+      "value": "用于语音输入低碳行为,端侧本地识别,不上传语音"
     }
   ]
 }

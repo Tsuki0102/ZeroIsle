@@ -101,14 +101,7 @@ export class SemanticParser {
         result.unmatched.push(clause)
         continue
       }
-      let amount: number = 1
-      const m: RegExpMatchArray | null = clause.match(/(\d+(?:\.\d+)?)/)
-      if (m !== null) {
-        const v: number = parseFloat(m[1])
-        if (!isNaN(v) && v > 0) {
-          amount = v
-        }
-      }
+      const amount: number = SemanticParser.extractAmount(clause, matchedId)
       const f = FactorLibrary.byId(matchedId)
       const item = new ParsedItem()
       item.factorId = f.id
@@ -121,5 +114,106 @@ export class SemanticParser {
       result.items.push(item)
     }
     return result
+  }
+
+  /** 从子句抽取数量:阿拉伯数字 > 中文数字(含"十"组合与"半");无则默认 1 */
+  private static extractAmount(clause: string, factorId: string): number {
+    const m: RegExpMatchArray | null = clause.match(/(\d+(?:\.\d+)?)/)
+    if (m !== null) {
+      const v: number = parseFloat(m[1])
+      if (!isNaN(v) && v > 0) {
+        return SemanticParser.applyTimeUnit(clause, factorId, v)
+      }
+    }
+    const c: RegExpMatchArray | null = clause.match(/[一二两三四五六七八九十半]+/)
+    if (c !== null) {
+      const v: number = SemanticParser.cnToNum(c[0])
+      if (v > 0) {
+        return SemanticParser.applyTimeUnit(clause, factorId, v)
+      }
+    }
+    return 1
+  }
+
+  /** 中文数字串转数值:两=2、十=10、二十=20、二十五=25、半=0.5 */
+  private static cnToNum(s: string): number {
+    if (s === '半') {
+      return 0.5
+    }
+    if (s === '十') {
+      return 10
+    }
+    const idx: number = s.indexOf('十')
+    if (idx >= 0) {
+      const tens: number = idx > 0 ? SemanticParser.cnDigit(s.charAt(idx - 1)) : 1
+      const ones: number = idx + 1 < s.length ? SemanticParser.cnDigit(s.charAt(idx + 1)) : 0
+      return tens * 10 + ones
+    }
+    return SemanticParser.cnDigit(s)
+  }
+
+  private static cnDigit(ch: string): number {
+    if (ch === '一') {
+      return 1
+    }
+    if (ch === '二' || ch === '两') {
+      return 2
+    }
+    if (ch === '三') {
+      return 3
+    }
+    if (ch === '四') {
+      return 4
+    }
+    if (ch === '五') {
+      return 5
+    }
+    if (ch === '六') {
+      return 6
+    }
+    if (ch === '七') {
+      return 7
+    }
+    if (ch === '八') {
+      return 8
+    }
+    if (ch === '九') {
+      return 9
+    }
+    if (ch === '半') {
+      return 0.5
+    }
+    return 0
+  }
+
+  private static strToNum(s: string): number {
+    if (/^\d/.test(s)) {
+      return parseFloat(s)
+    }
+    return SemanticParser.cnToNum(s)
+  }
+
+  /**
+   * 时间表述归一:「骑车30分钟/骑行2小时/步行半小时」→ 按均速折算公里。
+   * 仅对以公里计的出行因子(T01 骑行 / T02 步行)生效;子句已含"公里"时不重复换算。
+   */
+  private static applyTimeUnit(clause: string, factorId: string, raw: number): number {
+    if (factorId !== 'T01' && factorId !== 'T02') {
+      return raw
+    }
+    if (clause.includes('公里')) {
+      return raw
+    }
+    const tm: RegExpMatchArray | null =
+      clause.match(/(\d+(?:\.\d+)?|[一二两三四五六七八九十半]+)\s*(小时|分钟)/)
+    if (tm === null) {
+      return raw
+    }
+    let minutes: number = SemanticParser.strToNum(tm[1])
+    if (tm[2] === '小时') {
+      minutes = minutes * 60
+    }
+    const rate: number = factorId === 'T01' ? 0.33 : 0.08 // 骑行≈20km/h,步行≈5km/h
+    return Math.max(0.1, Math.round(minutes * rate * 10) / 10)
   }
 }

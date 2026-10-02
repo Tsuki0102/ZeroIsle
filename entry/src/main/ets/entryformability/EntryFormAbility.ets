@@ -1,6 +1,7 @@
 import { FormExtensionAbility, formBindingData, formProvider } from '@kit.FormKit'
 import { Want } from '@kit.AbilityKit'
 import { relationalStore } from '@kit.ArkData'
+import { ISLAND_STAGES } from '../model/Models'
 
 interface CardData {
   today: string
@@ -11,8 +12,11 @@ interface CardData {
 
 const EMPTY: CardData = { today: '0.00', points: '0', streak: '0', stage: '灰屿' }
 
-const STAGES: string[] = ['灰屿', '青屿', '绿屿', '森屿', '生态屿']
-const THRESHOLDS: number[] = [0, 10, 50, 150, 400]
+function fmtDay(d: Date): string {
+  const mm: string = (d.getMonth() + 1) < 10 ? '0' + (d.getMonth() + 1) : '' + (d.getMonth() + 1)
+  const dd: string = d.getDate() < 10 ? '0' + d.getDate() : '' + d.getDate()
+  return `${d.getFullYear()}-${mm}-${dd}`
+}
 
 /**
  * 桌面服务卡片数据源:直接读取本机数据库,离线刷新
@@ -32,19 +36,16 @@ export default class EntryFormAbility extends FormExtensionAbility {
           if (rs.goToFirstRow()) {
             const co2: number = rs.getDouble(rs.getColumnIndex('co2'))
             let pts: number = rs.getDouble(rs.getColumnIndex('pts'))
-            // 阶段
+            // 阶段(与主应用 ISLAND_STAGES 单一来源)
             let idx: number = 0
-            for (let i = 0; i < THRESHOLDS.length; i++) {
-              if (co2 >= THRESHOLDS[i]) {
+            for (let i = 0; i < ISLAND_STAGES.length; i++) {
+              if (co2 >= ISLAND_STAGES[i].thresholdKg) {
                 idx = i
               }
             }
-            out.stage = STAGES[idx]
+            out.stage = ISLAND_STAGES[idx].name
             // 今日减排(本地日期,与主应用口径一致)
-            const d = new Date()
-            const mm: string = (d.getMonth() + 1) < 10 ? '0' + (d.getMonth() + 1) : '' + (d.getMonth() + 1)
-            const dd: string = d.getDate() < 10 ? '0' + d.getDate() : '' + d.getDate()
-            const todayStr: string = `${d.getFullYear()}-${mm}-${dd}`
+            const todayStr: string = fmtDay(new Date())
             const p = new relationalStore.RdbPredicates('behavior_record')
             p.equalTo('record_date', todayStr)
             store.query(p, ['SUM(co2_kg) AS today']).then((rs2: relationalStore.ResultSet) => {
@@ -59,15 +60,24 @@ export default class EntryFormAbility extends FormExtensionAbility {
                   pts += rs3.getDouble(rs3.getColumnIndex('rp'))
                 }
                 rs3.close()
-                // 打卡天数(distinct 日期数,简化口径)
+                // 连续打卡天数(与主应用 Database.streak 同口径:从今天或昨天往前连续有记录)
                 const pd = new relationalStore.RdbPredicates('behavior_record')
                 pd.distinct()
                 store.query(pd, ['record_date']).then((rs4: relationalStore.ResultSet) => {
-                  let days: number = 0
+                  const set: Set<string> = new Set()
                   while (rs4.goToNextRow()) {
-                    days++
+                    set.add(rs4.getString(rs4.getColumnIndex('record_date')))
                   }
                   rs4.close()
+                  let days: number = 0
+                  const cur = new Date()
+                  if (!set.has(fmtDay(cur))) {
+                    cur.setDate(cur.getDate() - 1)
+                  }
+                  while (set.has(fmtDay(cur))) {
+                    days++
+                    cur.setDate(cur.getDate() - 1)
+                  }
                   out.points = `${Math.round(pts)}`
                   out.streak = `${days}`
                   resolve(out)

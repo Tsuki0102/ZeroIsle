@@ -55,6 +55,11 @@ export class FactorLibrary {
     return FactorLibrary.factors.filter((f: BehaviorFactor) => f.categoryId === categoryId)
   }
 
+  /** 判定是否为合法因子 id(用于入库前校验,阻断非法 id 污染数据) */
+  static has(factorId: string): boolean {
+    return FactorLibrary.factors.some((f: BehaviorFactor) => f.id === factorId)
+  }
+
   static byId(factorId: string): BehaviorFactor {
     const found: BehaviorFactor[] =
       FactorLibrary.factors.filter((f: BehaviorFactor) => f.id === factorId)
@@ -65,10 +70,16 @@ export class FactorLibrary {
   }
 
   static nameOf(factorId: string): string {
+    if (!FactorLibrary.has(factorId)) {
+      return '未知行为'
+    }
     return FactorLibrary.byId(factorId).name
   }
 
   static categoryOf(factorId: string): string {
+    if (!FactorLibrary.has(factorId)) {
+      return ''
+    }
     return FactorLibrary.byId(factorId).categoryId
   }
 

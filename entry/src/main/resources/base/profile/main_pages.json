@@ -1,11 +1,16 @@
 {
   "src": [
     "pages/Index",
+    "pages/agent/AgentPage",
     "pages/mine/MinePage",
     "pages/dex/DexPage",
     "pages/mine/BackupPage",
     "pages/carbon/CarbonPlusPage",
     "pages/rank/WeekRankPage",
-    "pages/poster/PosterPage"
+    "pages/poster/PosterPage",
+    "pages/mine/SettingsPage",
+    "pages/certificate/CertificatePage",
+    "pages/badge/BadgePage",
+    "pages/records/RecordListPage"
   ]
 }
