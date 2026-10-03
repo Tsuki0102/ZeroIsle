@@ -243,7 +243,8 @@ export struct IslandPage {
         if (done === total) {
           finish()
         }
-      }).catch(() => {
+      }).catch((e: Object) => {
+        console.error(`[ZeroIsle] 语义录入入库失败 factor=${it.factorId} amount=${it.amount}: ${JSON.stringify(e)}`)
         done++
         if (done === total) {
           finish()
