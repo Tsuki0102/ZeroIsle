@@ -39,6 +39,10 @@ export class VisionService {
       }
       uri = result.resultUri
     } catch (e) {
+      const be = e as BusinessError
+      if (be.code === 2097152) {
+        return { ok: false, text: '', msg: '当前环境无相机应用(模拟器),请用「相册识别」或扫码录入;真机可正常拍照' }
+      }
       return { ok: false, text: '', msg: '无法打开相机,可改用相册识别' }
     }
     return VisionService.recognizeUri(uri)
@@ -65,6 +69,10 @@ export class VisionService {
 
   /** 对指定图片 URI 做端侧 OCR(大图先降采样:长边 ≤1280,足够识别且降低内存峰值) */
   private static async recognizeUri(uri: string): Promise<OcrOutcome> {
+    // 能力预检:部分模拟器镜像不含 TextRecognition 系统能力,提前给出明确提示而非"未知错误"
+    if (!canIUse('SystemCapability.AI.Vision.TextRecognition')) {
+      return { ok: false, text: '', msg: '当前设备不支持端侧文字识别(模拟器环境),已降级手动确认;真机可正常识别' }
+    }
     let pixelMap: image.PixelMap | undefined
     let file: fs.File | null = null
     try {
