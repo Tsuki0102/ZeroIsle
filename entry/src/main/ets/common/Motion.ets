@@ -12,7 +12,7 @@ export class ZeroMotion {
   /** 退出(返回)时长 */
   static readonly pageDurOut: number = 140
   /** 应用进场(品牌启动层)淡出前停留时长 */
-  static readonly splashHold: number = 950
+  static readonly splashHold: number = 2000
   /** 进场层淡出时长 */
-  static readonly splashOutDur: number = 680
+  static readonly splashOutDur: number = 900
 }

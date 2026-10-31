@@ -17,6 +17,8 @@ const METER_FACTOR_ID: string = 'E01'
 export struct RecordPage {
   @State selectedCategory: string = 'travel'
   @State selectedFactor: BehaviorFactor | null = null
+  /** 半模态面板显式开关(bindSheet 需绑定状态变量,方法调用不触发弹出) */
+  @State sheetOn: boolean = false
   @State amountStr: string = '1'
   @State sheet: string = 'none'
   @State ocrText: string = ''
@@ -74,6 +76,7 @@ export struct RecordPage {
     const r = SemanticParser.parse(o.text)
     this.ocrItems = r.items
     this.sheet = 'photo'
+    this.sheetOn = true
   }
 
   /** 扫码录入:相册选共享单车骑行码 → ScanKit 二维码检测 → 自动换算骑行里程 */
@@ -93,6 +96,7 @@ export struct RecordPage {
       this.ocrText = `扫码结果:${q.payload}`
       this.ocrItems = [item]
       this.sheet = 'photo'
+      this.sheetOn = true
     })
   }
 
@@ -130,6 +134,7 @@ export struct RecordPage {
       this.meterCurrent = this.meterDigits.length > 0 ? this.meterDigits[this.meterDigits.length - 1] : ''
       this.meterLast = ''
       this.sheet = 'meter'
+      this.sheetOn = true
     })
   }
 
@@ -137,6 +142,7 @@ export struct RecordPage {
     if (this.ocrItems.length === 0) {
       toast('没识别出低碳行为,可改用手动录入')
       this.sheet = 'none'
+      this.sheetOn = false
       return
     }
     const ctx = getContext(this) as common.UIAbilityContext
@@ -151,6 +157,7 @@ export struct RecordPage {
       if (ok === total) {
         toast(`已从照片记录 ${total} 条行为!`)
         this.sheet = 'none'
+        this.sheetOn = false
       } else {
         toast(`成功 ${ok} 条,失败 ${total - ok} 条,请重试`)
       }
@@ -185,6 +192,7 @@ export struct RecordPage {
       this.meterDigits = []
       toast(`已记录节电 ${cur - last} 度(抄表)`)
       this.sheet = 'none'
+      this.sheetOn = false
     }).catch(() => {
       toast('保存失败,请重试')
     })
@@ -230,6 +238,7 @@ export struct RecordPage {
     Database.insertRecord(ctx, f.id, amount, '手动', '').then(() => {
       emitter.emit({ eventId: EVT_DATA_CHANGED }, {})
       this.selectedFactor = null
+      this.sheetOn = false
       this.amountStr = '1'
       toast(`已记录「${f.name}」+${Math.round(amount * f.factor * 10)} 岛币`)
     }).catch(() => {
@@ -237,13 +246,10 @@ export struct RecordPage {
     })
   }
 
-  private isSheetOn(): boolean {
-    return this.selectedFactor !== null || this.sheet !== 'none'
-  }
-
   private closeSheet(): void {
     this.selectedFactor = null
     this.sheet = 'none'
+    this.sheetOn = false
   }
 
   @Builder
@@ -259,6 +265,7 @@ export struct RecordPage {
             .padding(6)
             .onClick(() => {
               this.selectedFactor = null
+              this.sheetOn = false
             })
         }.width('100%')
   
@@ -358,6 +365,7 @@ export struct RecordPage {
         Text('✕').fontSize(18).fontColor($r('app.color.text_sub'))
           .onClick(() => {
             this.sheet = 'none'
+            this.sheetOn = false
           })
       }.width('100%')
 
@@ -407,6 +415,7 @@ export struct RecordPage {
         Text('✕').fontSize(18).fontColor($r('app.color.text_sub'))
           .onClick(() => {
             this.sheet = 'none'
+            this.sheetOn = false
           })
       }.width('100%')
 
@@ -596,11 +605,11 @@ export struct RecordPage {
         .width('100%')
         .margin({ top: 12 })
 
-        // 行为列表
-        List({ space: 8 }) {
+        // 行为列表(Scroll+Column:Tabs 内 List 的点击手势会被仲裁拒绝,Chips 同构已验证可点)
+        Scroll() {
+          Column({ space: 8 }) {
           ForEach(FactorLibrary.byCategory(this.selectedCategory), (f: BehaviorFactor) => {
-            ListItem() {
-              Row() {
+            Row() {
                 Column() {
                   Image($rawfile(`icons/${this.catSvg(f.categoryId)}.svg`))
                     .width(20).height(20).fillColor($r('app.color.text_light'))
@@ -633,14 +642,18 @@ export struct RecordPage {
               .clickEffect({ level: ClickEffectLevel.LIGHT })
               .onClick(() => {
                 this.selectedFactor = f
+                this.sheetOn = true
                 this.amountStr = '1'
               })
-            }
           }, (f: BehaviorFactor) => f.id)
+          }
+          .width('100%')
+          .padding({ left: ZeroTheme.padL, right: ZeroTheme.padL, top: 12, bottom: 12 })
         }
         .layoutWeight(1)
         .width('100%')
-        .padding({ left: ZeroTheme.padL, right: ZeroTheme.padL, top: 12, bottom: 12 })
+        .scrollBar(BarState.Off)
+        .align(Alignment.Top)
       }
       .width('100%')
       .height('100%')
@@ -649,9 +662,7 @@ export struct RecordPage {
     }
     .width('100%')
     .height('100%')
-    .bindSheet(this.isSheetOn(), (): void => {
-      this.sheetPanel()
-    }, {
+    .bindSheet($$this.sheetOn, this.sheetPanel, {
       height: SheetSize.FIT_CONTENT,
       dragBar: false,
       showClose: false,
@@ -659,6 +670,7 @@ export struct RecordPage {
       onDisappear: () => {
         this.selectedFactor = null
         this.sheet = 'none'
+        this.sheetOn = false
       }
     })
   }

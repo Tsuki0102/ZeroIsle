@@ -125,7 +125,7 @@ struct SettingsPage {
       })
     } else if (kind === 'notify') {
       notificationManager.requestEnableNotification(ctx).then(async () => {
-        const msg: string = await ReminderService.enableDaily()
+        const msg: string = await ReminderService.enableDaily(ctx)
         toast(msg)
       }).catch(() => {
         toast('通知权限未开启,可在系统设置中打开')
