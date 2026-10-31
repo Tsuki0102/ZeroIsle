@@ -10,6 +10,36 @@
 
 零屿是一款碳普惠生活记录应用:记录日常绿色行为,按减排因子库自动折算 CO₂e 减排量与岛币,以岛屿生态从灰屿到绿屿的成长作为可视化激励,并配套看板分析、任务激励、徽章证书、家庭碳账本同步等完整闭环。
 
+## 应用预览
+
+**岛屿成长** —— 生态值驱动的五阶段进化,每一次低碳行为都让岛屿更绿一分:
+
+<p align="center">
+  <img src="docs/images/isle-1.png" width="19%" alt="灰屿·荒原待绿"/>
+  <img src="docs/images/isle-2.png" width="19%" alt="青屿"/>
+  <img src="docs/images/isle-3.png" width="19%" alt="绿屿"/>
+  <img src="docs/images/isle-4.png" width="19%" alt="生态屿"/>
+  <img src="docs/images/isle-5.png" width="19%" alt="森屿·金色黄昏"/>
+</p>
+
+**核心页面** —— 行为记录 · 碳足迹看板 · 任务营 · 碳知实验室:
+
+<p align="center">
+  <img src="docs/images/record.png" width="24%" alt="碳账记录"/>
+  <img src="docs/images/stats.png" width="24%" alt="碳足迹看板"/>
+  <img src="docs/images/task.png" width="24%" alt="低碳营地"/>
+  <img src="docs/images/lab.png" width="24%" alt="碳知实验室"/>
+</p>
+
+**特色能力** —— 岛灵 Agent 对话记账 · 徽章墙 · 电子植树证书 · 碳普惠平台对接:
+
+<p align="center">
+  <img src="docs/images/agent.png" width="24%" alt="岛灵 Agent"/>
+  <img src="docs/images/badges.png" width="24%" alt="我的勋章"/>
+  <img src="docs/images/certificate.png" width="24%" alt="我的植树证书"/>
+  <img src="docs/images/carbon-inclusive.png" width="24%" alt="碳普惠平台"/>
+</p>
+
 ## 项目亮点
 
 - **游戏化激励闭环** —— 五阶段岛屿生态成长(Canvas 场景动画)、10 物种收藏图鉴、8 枚徽章、每日/周任务判定式引擎、岛币商城与电子植树证书,奖励按「任务+周期键」唯一发放防重复领取
@@ -99,9 +129,5 @@ $env:DEVECO_SDK_HOME = "<DevEco 安装目录>\sdk"
 
 | 文档 | 内容 |
 |---|---|
-| [`docs/零屿-参赛作品设计方案.docx`](docs/零屿-参赛作品设计方案.docx) | 完整设计方案 Word 版:设计思路、架构、实现逻辑、测试结果 |
-| [`docs/零屿-参赛作品设计方案-预览.pdf`](docs/零屿-参赛作品设计方案-预览.pdf) | 设计方案 PDF 预览版 |
 | [`docs/性能实测记录.md`](docs/性能实测记录.md) | 冷启动 / 内存 / 包体积实测数据与复测方法 |
-| [`docs/零屿参赛优化升级路线图.md`](docs/零屿参赛优化升级路线图.md) | 完整开发与优化记录(功能、动效、验证结论) |
-| [`docs/碳普惠模拟接口协议.md`](docs/碳普惠模拟接口协议.md) | 碳普惠平台模拟接口协议 |
-| [`docs/参考-大赛通知全文提取.txt`](docs/参考-大赛通知全文提取.txt) | 大赛通知参考资料 |
+| [`docs/碳普惠模拟接口协议.md`](docs/碳普惠模拟接口协议.md) | 城市碳普惠平台模拟接口协议(离线演示层) |
